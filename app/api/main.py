@@ -3,14 +3,16 @@
 前端：web/frontend/index.html（深色战术终端界面）
 启动：python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8600
 """
+import io
 import json
 import threading
 import uuid
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import Body, FastAPI, File, Form, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -182,6 +184,98 @@ async def upload_docs(project: str = Form("default"), files: list[UploadFile] = 
         except Exception:  # noqa: BLE001
             continue
     return {"imported": imported, "count": kb.count(project_id=project)}
+
+
+# ============================================================
+# 导出：打包为可导入游戏工程的 zip
+# ============================================================
+def _to_tiled(map_data: dict) -> dict:
+    """把内部地图数据转成 Tiled 兼容 JSON。"""
+    grid = map_data.get("grid") or []
+    height = len(grid)
+    width = len(grid[0]) if grid else 0
+    data = [1 if c == 1 else 0 for row in grid for c in row]
+    return {
+        "type": "map",
+        "version": "1.10",
+        "tiledversion": "1.10.2",
+        "orientation": "orthogonal",
+        "renderorder": "right-down",
+        "width": width,
+        "height": height,
+        "tilewidth": 32,
+        "tileheight": 32,
+        "infinite": False,
+        "layers": [{
+            "type": "tilelayer",
+            "name": "ground",
+            "width": width,
+            "height": height,
+            "x": 0,
+            "y": 0,
+            "opacity": 1,
+            "visible": True,
+            "data": data,
+        }],
+        "properties": [
+            {"name": "theme", "type": "string", "value": map_data.get("description", "")},
+            {"name": "start", "type": "string", "value": json.dumps(map_data.get("_start_rc"))},
+            {"name": "end", "type": "string", "value": json.dumps(map_data.get("_end_rc"))},
+            {"name": "spawn_points", "type": "string",
+             "value": json.dumps(map_data.get("spawn_points") or [], ensure_ascii=False)},
+            {"name": "resource_points", "type": "string",
+             "value": json.dumps(map_data.get("resource_points") or [], ensure_ascii=False)},
+        ],
+    }
+
+
+def _build_report(payload: dict) -> str:
+    """生成 report.md（校验 + 评审）。"""
+    world = payload.get("world_setting") or {}
+    vr = payload.get("validate_report") or {}
+    rr = payload.get("review_report") or {}
+    lines = [
+        "# 关卡导出报告",
+        "",
+        f"## 世界观",
+        f"- 主题：{world.get('theme', '-')}",
+        f"- 风格：{world.get('style', '-')}",
+        f"- 难度：{world.get('difficulty', '-')}",
+        f"- 玩家等级：{world.get('player_level_range', '-')}",
+        "",
+        "## 数值校验",
+        f"- 通过：{vr.get('passed')}｜阻断 {vr.get('block_count')}｜警告 {vr.get('warning_count')}",
+    ]
+    for it in vr.get("issues") or []:
+        lines.append(f"- [{it.get('level')}] {it.get('monster_name', '')}：{it.get('message', '')}")
+    lines += ["", "## 评审报告", f"- 结论：{payload.get('review_status')}｜评分：{rr.get('score', '-')}"]
+    for it in rr.get("issues") or []:
+        lines.append(f"- [{it.get('level')}] [{it.get('part', '')}] {it.get('message', '')}")
+    for s in rr.get("suggestions") or []:
+        lines.append(f"- 建议：{s}")
+    return "\n".join(lines)
+
+
+@app.post("/api/export")
+def export_zip(payload: dict = Body(...)):
+    """接收当前运行结果，打包下载 zip（Tiled 地图/对话/数值/报告）。"""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("tiled_map.json",
+                    json.dumps(_to_tiled(payload.get("map_data") or {}), ensure_ascii=False, indent=2))
+        zf.writestr("dialogue_config.json",
+                    json.dumps(payload.get("dialogue_data") or {}, ensure_ascii=False, indent=2))
+        zf.writestr("monster_config.json",
+                    json.dumps(payload.get("monster_numeric_data") or {}, ensure_ascii=False, indent=2))
+        zf.writestr("world_setting.json",
+                    json.dumps(payload.get("world_setting") or {}, ensure_ascii=False, indent=2))
+        zf.writestr("report.md", _build_report(payload))
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=level_export.zip"},
+    )
 
 
 @app.get("/")

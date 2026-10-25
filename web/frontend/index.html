@@ -167,6 +167,7 @@ th.num,td.num{text-align:right;font-family:var(--mono)}
   <div class="top-actions">
     <button class="btn primary" id="runBtn">▶ 运行流水线</button>
     <button class="btn" id="uploadBtn">📄 上传文档</button>
+    <button class="btn" id="exportBtn" title="导出本次产出的地图/对话/数值/报告为 zip">⬇ 导出配置包</button>
     <input type="file" id="fileInput" multiple accept=".md,.txt,.json" style="display:none">
   </div>
 </header>
@@ -528,6 +529,29 @@ document.getElementById('fileInput').onchange = async (e)=>{
     alert('上传失败: '+err.message);
   }
   e.target.value = '';
+};
+
+/* ---------- 导出配置包（zip） ---------- */
+document.getElementById('exportBtn').onclick = async ()=>{
+  if(!current){ alert('请先运行一次流水线，或点击历史记录回放'); return; }
+  try{
+    const r = await fetch('/api/export', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(current),
+    });
+    if(!r.ok){ alert('导出失败: HTTP '+r.status); return; }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'level_export.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }catch(err){
+    alert('导出失败: '+err.message);
+  }
 };
 
 /* ---------- 项目选择器 ---------- */
