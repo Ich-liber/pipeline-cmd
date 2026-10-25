@@ -1,0 +1,21 @@
+# 环境变量（含 API Key，绝不提交）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# 知识库 / 模型数据
+data/chroma/
+data/chroma_test*/
+data/models/
+data/shot_*.png
+data/ui_*.png
+
+# 系统
+.DS_Store
+Thumbs.db

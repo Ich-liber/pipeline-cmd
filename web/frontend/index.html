@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PIPELINE·CMD — 游戏关卡策划多智能体工作台</title>
+<style>
+/* ═══ 冷石板深底 + Teal 磷光 accent ═══ */
+:root{
+  --page:#14171c; --bg:#1d2128; --panel-2:#262b34; --panel-3:#2f3540;
+  --border:rgba(255,255,255,.07); --border-strong:rgba(255,255,255,.12);
+  --ink-1:#f2f5f9; --ink-2:#b8c1cf; --ink-3:#8b96a8;
+  --accent:#2fd3c5; --accent-2:#e8a33d; --accent-soft:rgba(47,211,197,.13);
+  --on-accent:#06201e; --glow:rgba(47,211,197,.30);
+  --up:#3fcb86; --down:#f07c93; --warn:#e8a33d;
+  --up-soft:rgba(63,203,134,.14); --down-soft:rgba(240,124,147,.14); --warn-soft:rgba(232,163,61,.16);
+  --r:4px; --r-sm:3px;
+  --mono:"JetBrains Mono","SF Mono","Cascadia Code",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--page);color:var(--ink-1);
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:13px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow:hidden;
+}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{display:block;flex:none}
+.ic{width:16px;height:16px}
+
+/* 顶栏 */
+.topbar{display:flex;align-items:center;gap:14px;height:58px;padding:0 18px;background:var(--bg);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;letter-spacing:.04em;white-space:nowrap}
+.brand .mark{width:26px;height:26px;border-radius:4px;background:linear-gradient(135deg,var(--accent) 0%,#1a8a80 100%);display:grid;place-items:center;color:var(--on-accent);font-family:var(--mono);font-weight:700;font-size:13px;box-shadow:0 0 18px var(--glow)}
+.brand .ver{color:var(--ink-3);font-weight:400;font-family:var(--mono);font-size:11px}
+.prompt{flex:1;display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;min-width:0}
+.prompt .chevron{color:var(--accent);flex:none;font-family:var(--mono)}
+.prompt select.proj{background:var(--panel-3);border:1px solid var(--border-strong);border-radius:var(--r-sm);color:var(--ink-1);font-family:var(--mono);font-size:11px;padding:4px 8px;width:130px;flex:none;outline:none;cursor:pointer}
+.prompt select.proj option{background:var(--panel-2);color:var(--ink-1)}
+.btn.plus{padding:4px 10px;font-family:var(--mono);font-weight:700;font-size:14px;line-height:1;border-color:var(--border-strong);color:var(--accent)}
+.btn.plus:hover{background:var(--accent-soft)}
+.prompt input.demand{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink-2);font-family:var(--mono);font-size:12px}
+.prompt input.demand::placeholder{color:var(--ink-3)}
+.top-actions{display:flex;gap:8px;flex:none}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--border-strong);color:var(--ink-2);font-size:12px;white-space:nowrap;transition:.12s}
+.btn:hover{background:var(--panel-2);color:var(--ink-1)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600;box-shadow:0 0 16px var(--glow)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 流水线条 */
+.pipeline{display:flex;align-items:stretch;background:var(--bg);border-bottom:1px solid var(--border);padding:10px 18px;overflow-x:auto;gap:0}
+.node{display:flex;align-items:center;gap:10px;padding:6px 14px 6px 10px;border-radius:var(--r);min-width:150px;flex:none;border:1px solid transparent}
+.node .avatar{width:32px;height:32px;border-radius:var(--r);background:var(--panel-2);border:1px solid var(--border);display:grid;place-items:center;color:var(--ink-3);font-size:14px}
+.node.on .avatar{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:0 0 14px var(--glow)}
+.node.done .avatar{background:var(--up-soft);border-color:rgba(63,203,134,.4);color:var(--up)}
+.node.fail .avatar{background:var(--down-soft);border-color:rgba(240,124,147,.4);color:var(--down)}
+.node .meta{display:flex;flex-direction:column;line-height:1.2}
+.node .name{font-size:12px;font-weight:600}
+.node .role{font-size:10px;color:var(--ink-3);font-family:var(--mono)}
+.node .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);margin-left:auto}
+.node.done .dot{background:var(--up)}
+.node.on .dot{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.2s infinite}
+.node.fail .dot{background:var(--down)}
+.arrow{align-self:center;color:var(--ink-3);opacity:.5;font-family:var(--mono);font-size:14px;padding:0 2px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 主体两栏 */
+.workspace{display:grid;grid-template-columns:1fr 320px;height:calc(100vh - 58px - 62px - 30px)}
+.main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.result-bar{display:none;gap:20px;padding:7px 18px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--ink-2)}
+.result-bar.on{display:flex}
+.result-bar b{color:var(--ink-1)}
+.tabs{display:flex;flex-wrap:wrap;overflow:visible;padding:0 18px;border-bottom:1px solid var(--border);background:var(--bg)}
+.tab{flex:0 0 auto;padding:10px 14px;font-size:12px;color:var(--ink-3);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink-1)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tab .badge{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:999px;background:var(--panel-2);color:var(--ink-3);margin-left:4px}
+.tab.on .badge{background:var(--accent-soft);color:var(--accent)}
+.content{flex:1;overflow:auto;padding:16px 18px;min-height:0}
+.pane{display:none}
+.pane.on{display:block}
+
+/* 地图 */
+.map-shell{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.map-header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.map-header h3{font-size:13px;font-weight:600}
+.map-header .sub{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.legend{margin-left:auto;display:flex;gap:12px;font-size:10px;color:var(--ink-3);font-family:var(--mono)}
+.legend span{display:flex;align-items:center;gap:4px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.map-grid-wrap{padding:14px;display:grid;place-items:center;background:#0d1014;overflow:auto}
+.map-grid{display:grid;border:1px solid var(--border-strong)}
+.cell{width:26px;height:26px;position:relative;border-right:1px solid rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.03)}
+.c-floor{background:#22261f}
+.c-wall{background:#2f3540}
+.c-start{background:#1a3327}
+.c-end{background:#3a2a4a}
+.mk{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;line-height:1}
+.mk-monster{color:#f07c93}
+.mk-resource{color:#3fcb86}
+.map-meta{padding:10px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}
+.map-meta b{color:var(--ink-3);font-weight:500;font-family:var(--mono);font-size:10px;margin-right:4px}
+
+/* 对话/数值/评审 */
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card h4{font-size:12px;color:var(--accent);margin-bottom:8px}
+.kv{display:flex;gap:8px;margin:4px 0;font-size:12px}
+.kv .k{color:var(--ink-3);min-width:80px}
+.kv .v{color:var(--ink-1)}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-family:var(--mono)}
+.tag.ok{background:var(--up-soft);color:var(--up)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.bad{background:var(--down-soft);color:var(--down)}
+.dialogue-line{padding:6px 10px;background:var(--panel-2);border-radius:var(--r-sm);margin:6px 0;font-size:12px}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:7px 10px;font-size:12px;border-bottom:1px solid var(--border)}
+th{color:var(--ink-3);font-weight:500;font-size:10px;font-family:var(--mono);letter-spacing:.03em;text-transform:uppercase}
+th.num,td.num{text-align:right;font-family:var(--mono)}
+.verdict{font-size:30px;font-weight:700;font-family:var(--mono);text-align:center;margin:16px 0}
+.verdict.pass{color:var(--up);text-shadow:0 0 24px rgba(63,203,134,.4)}
+.verdict.reject{color:var(--down);text-shadow:0 0 24px rgba(240,124,147,.4)}
+.issue{display:flex;gap:8px;padding:8px 10px;border-radius:var(--r-sm);background:var(--panel-2);margin-bottom:6px;font-size:11px}
+.issue.bad{border-left:2px solid var(--down)}
+.issue.warn{border-left:2px solid var(--warn)}
+
+/* 右侧栏 */
+.side{border-left:1px solid var(--border);background:var(--bg);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.side h4{font-size:10px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+.report-item{display:flex;gap:8px;padding:8px 10px;border-radius:var(--r-sm);background:var(--panel-2);margin-bottom:6px;font-size:11px;line-height:1.4}
+.report-item b{color:var(--ink-1)}
+.report-item .detail{color:var(--ink-3);font-family:var(--mono);font-size:10px}
+.report-item.ok{border-left:2px solid var(--up)}
+.report-item.warn{border-left:2px solid var(--warn)}
+.report-item.bad{border-left:2px solid var(--down)}
+
+/* 历史树 */
+.tree details{margin:4px 0}
+.tree details>summary{cursor:pointer;font-size:12px;padding:4px 0;color:var(--ink-2)}
+.tree details>summary:hover{color:var(--ink-1)}
+.tree details[open]>summary{color:var(--accent)}
+.tree .run{padding:6px 8px;margin:4px 0 4px 10px;background:var(--panel-2);border-radius:var(--r-sm);font-size:11px}
+.tree .run .t{color:var(--ink-3);font-family:var(--mono);font-size:10px}
+.tree .run pre{display:none;white-space:pre-wrap;font-size:10px;color:var(--ink-3);margin-top:6px;background:#15181d;padding:8px;border-radius:var(--r-sm);max-height:200px;overflow:auto}
+.tree .run.open pre{display:block}
+
+/* 状态栏 */
+.statusbar{height:22px;background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:center;gap:18px;padding:0 14px;font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.statusbar .ok{color:var(--up)}
+.statusbar .sp{margin-left:auto}
+.empty{display:grid;place-items:center;gap:10px;padding:60px 20px;text-align:center;color:var(--ink-3)}
+.empty b{color:var(--ink-1);font-size:14px}
+.skel{background:linear-gradient(90deg,var(--panel-2),var(--panel-3),var(--panel-2));height:32px;border-radius:var(--r-sm);margin:8px 0;opacity:.7}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><div class="mark">◆</div>PIPELINE·CMD<span class="ver">v1.0 · langgraph</span></div>
+  <div class="prompt">
+    <span class="chevron">›_</span>
+    <select class="proj" id="projectSelect" title="选择项目"></select>
+    <button class="btn plus" id="newProjectBtn" title="新建项目">+</button>
+    <input class="demand" id="promptInput" placeholder="制作新手森林关卡，适合1-3级玩家，主线：救出村民安娜…">
+  </div>
+  <div class="top-actions">
+    <button class="btn primary" id="runBtn">▶ 运行流水线</button>
+    <button class="btn" id="uploadBtn">📄 上传文档</button>
+    <input type="file" id="fileInput" multiple accept=".md,.txt,.json" style="display:none">
+  </div>
+</header>
+
+<nav class="pipeline" id="pipeline"></nav>
+
+<div class="workspace">
+  <div class="main">
+    <div class="result-bar" id="resultBar"></div>
+    <div class="tabs">
+      <div class="tab on" data-pane="map">地图关卡</div>
+      <div class="tab" data-pane="tree">对话树</div>
+      <div class="tab" data-pane="stats">怪物数值</div>
+      <div class="tab" data-pane="review">评审裁决</div>
+    </div>
+    <div class="content">
+      <div class="pane on" data-pane="map" id="pane-map"><div class="empty"><b>尚未运行</b><span>输入需求并点击「运行流水线」</span></div></div>
+      <div class="pane" data-pane="tree" id="pane-tree"><div class="empty"><b>尚未运行</b></div></div>
+      <div class="pane" data-pane="stats" id="pane-stats"><div class="empty"><b>尚未运行</b></div></div>
+      <div class="pane" data-pane="review" id="pane-review"><div class="empty"><b>尚未运行</b></div></div>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div>
+      <h4>校验报告</h4>
+      <div id="reports"><div class="report-item"><div>运行后显示校验结果</div></div></div>
+    </div>
+    <div>
+      <h4>历史记录（按项目）</h4>
+      <div class="tree" id="history"><div style="font-size:11px;color:var(--ink-3)">加载中…</div></div>
+    </div>
+    <div>
+      <h4>知识库文档</h4>
+      <div id="knowledge" style="font-size:11px;color:var(--ink-3)">加载中…</div>
+    </div>
+  </aside>
+</div>
+
+<div class="statusbar">
+  <span class="ok">● online</span>
+  <span id="modelInfo">model: deepseek-chat</span>
+  <span id="stateInfo">state: idle</span>
+  <span class="sp">langgraph · chroma · fastapi</span>
+</div>
+
+<script>
+const AGENTS = [
+  {id:'planner', icon:'◎', name:'Planner', role:'需求解析'},
+  {id:'map', icon:'▦', name:'MapAgent', role:'地图关卡'},
+  {id:'dialogue', icon:'◈', name:'Dialogue', role:'对话树'},
+  {id:'validator', icon:'◧', name:'Validator', role:'数值校验'},
+  {id:'review', icon:'✓', name:'Review', role:'综合评审'},
+];
+
+let current = null;
+let polling = null;
+
+/* ---------- 流水线节点渲染 ---------- */
+function renderPipeline(state){ // state: idle|running|done|reject
+  let html = '';
+  AGENTS.forEach((a,i)=>{
+    let cls='next', role=a.role;
+    if(state==='running'){ cls = i===0?'on':'next'; role = i===0?'执行中…':a.role+' · 排队'; }
+    if(state==='done'){ cls='done'; role=a.role+' · 完成'; }
+    if(state==='reject'){ cls = a.id==='review'?'fail':'done'; role = a.id==='review'?'综合评审 · 驳回':a.role+' · 完成'; }
+    if(state==='error'){ cls = i===0?'fail':'next'; }
+    html += `<div class="node ${cls}"><div class="avatar">${a.icon}</div><div class="meta"><span class="name">${a.name}</span><span class="role">${role}</span></div><span class="dot"></span></div>`;
+    if(i<AGENTS.length-1) html += '<span class="arrow">──▶</span>';
+  });
+  document.getElementById('pipeline').innerHTML = html;
+}
+
+/* ---------- Tab 切换 ---------- */
+function switchTab(pane){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
+  const tab = document.querySelector(`.tab[data-pane="${pane}"]`);
+  const p = document.querySelector(`.pane[data-pane="${pane}"]`);
+  if(tab) tab.classList.add('on');
+  if(p) p.classList.add('on');
+}
+document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>switchTab(t.dataset.pane); });
+
+/* ---------- 运行 ---------- */
+document.getElementById('runBtn').onclick = async ()=>{
+  const prompt = document.getElementById('promptInput').value.trim();
+  const project = document.getElementById('projectSelect').value || 'default';
+  if(!prompt){ alert('请先输入策划需求'); return; }
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = '运行中…';
+  renderPipeline('running');
+  document.getElementById('stateInfo').textContent = 'state: running';
+  try{
+    const r = await fetch('/api/run', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({prompt, project})});
+    const data = await r.json();
+    if(data.error){ throw new Error(data.error); }
+    pollTask(data.task_id);
+  }catch(e){
+    alert('启动失败: '+e.message);
+    btn.disabled=false; btn.textContent='▶ 运行流水线';
+    renderPipeline('error');
+  }
+};
+
+function pollTask(id){
+  clearInterval(polling);
+  polling = setInterval(async ()=>{
+    const r = await fetch('/api/status/'+id);
+    const data = await r.json();
+    if(data.status==='done'){
+      clearInterval(polling);
+      current = data.result;
+      renderResult(current);
+      loadHistory();
+      loadProjects(true);
+      const btn = document.getElementById('runBtn');
+      btn.disabled=false; btn.textContent='▶ 运行流水线';
+      document.getElementById('stateInfo').textContent = 'state: idle';
+      renderPipeline(current.review_status==='pass'?'done':'reject');
+    }else if(data.status==='error'){
+      clearInterval(polling);
+      alert('运行失败: '+data.error);
+      const btn = document.getElementById('runBtn');
+      btn.disabled=false; btn.textContent='▶ 运行流水线';
+      renderPipeline('error');
+    }
+  }, 1500);
+}
+
+/* ---------- 渲染结果 ---------- */
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderResult(d){
+  renderMap(d.map_data||{}, d.world_setting||{});
+  renderDialogue(d.dialogue_data||{});
+  renderStats(d.monster_numeric_data||{}, d.validate_report||{});
+  renderReview(d.review_report||{}, d.review_status, d.validate_report||{});
+  renderReports(d.map_data||{}, d.validate_report||{});
+  updateTabBadges(d);
+  updateResultBar(d);
+}
+
+function updateTabBadges(d){
+  const npcs = (d.dialogue_data||{}).npcs||[];
+  const monsters = (d.monster_numeric_data||{}).monsters||[];
+  const ok = d.review_status==='pass';
+  const set=(id,text)=>{const el=document.getElementById(id); if(el) el.textContent=text;};
+  set('badge-map', (d.map_data&&d.map_data.grid)?'OK':'—');
+  set('badge-tree', npcs.length+' NPC');
+  set('badge-stats', monsters.length+' 只');
+  set('badge-review', ok?'✅':'⛔');
+}
+
+function updateResultBar(d){
+  const bar = document.getElementById('resultBar');
+  const npcs = (d.dialogue_data||{}).npcs||[];
+  const monsters = (d.monster_numeric_data||{}).monsters||[];
+  const ok = d.review_status==='pass';
+  const score = (d.review_report||{}).score;
+  bar.classList.add('on');
+  bar.innerHTML =
+    `<span>🗺️ 地图 <b>${(d.map_data&&d.map_data.grid)?'✅':'❌'}</b></span>`+
+    `<span>💬 对话 <b>${npcs.length}</b> NPC</span>`+
+    `<span>⚔️ 数值 <b>${monsters.length}</b> 只</span>`+
+    `<span>📋 评审 <b style="color:${ok?'var(--up)':'var(--down)'}">${ok?'✅ 通过':'⛔ 驳回'}</b>${score!=null?' ｜ 评分 '+score:''}</span>`+
+    `<span style="margin-left:auto;color:var(--ink-3)">← 切换上方 Tab 查看各部分</span>`;
+}
+
+function renderMap(map,w){
+  const pane = document.getElementById('pane-map');
+  const grid = map.grid || [];
+  if(!grid.length){ pane.innerHTML = '<div class="empty"><b>地图未生成</b></div>'; return; }
+  const start = map._start_rc, end = map._end_rc;
+  const rows = grid.length, cols = grid[0].length;
+
+  // 刷点 / 资源点（坐标为 [x,y]，x=列 y=行）
+  const marks = {};
+  (map.spawn_points||[]).forEach(s=>{ marks[`${s.y},${s.x}`] = {t:'monster', label:`${s.monster} ×${s.count}`}; });
+  (map.resource_points||[]).forEach(r=>{ marks[`${r.y},${r.x}`] = {t:'resource', label:r.type}; });
+
+  let cells='';
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      let cls = grid[r][c]===1?'c-wall':'c-floor';
+      let mark = '';
+      if(start && r===start[0] && c===start[1]){ cls='c-start'; mark='<span class="mk" style="color:#2fd3c5">▶</span>'; }
+      else if(end && r===end[0] && c===end[1]){ cls='c-end'; mark='<span class="mk" style="color:#b58cff">■</span>'; }
+      else {
+        const mk = marks[`${r},${c}`];
+        if(mk){
+          mark = mk.t==='monster'
+            ? `<span class="mk mk-monster" title="${esc(mk.label)}">●</span>`
+            : `<span class="mk mk-resource" title="${esc(mk.label)}">✦</span>`;
+        }
+      }
+      cells += `<div class="cell ${cls}">${mark}</div>`;
+    }
+  }
+
+  const check = map._path_check||{};
+  const ok = check.reachable;
+  const regionOrder = Object.keys(map.regions_layout||{}).join(' → ');
+  const spawnList = (map.spawn_points||[]).map(s=>`${esc(s.monster)}×${s.count}(${s.x},${s.y})`).join('、') || '无';
+  const resList = (map.resource_points||[]).map(r=>`${esc(r.type)}(${r.x},${r.y})`).join('、') || '无';
+
+  pane.innerHTML = `
+    <div class="map-shell">
+      <div class="map-header">
+        <h3>${esc(w.theme||'关卡地图')} · ${cols}×${rows}</h3>
+        <span class="sub">${ok?'BFS ✅ '+(check.message||''):'BFS ❌ '+(check.message||'')}</span>
+        <div class="legend">
+          <span><i class="sw" style="background:#1a3327"></i>起点</span>
+          <span><i class="sw" style="background:#3a2a4a"></i>终点</span>
+          <span><i class="sw" style="background:#22261f"></i>地面</span>
+          <span><i class="sw" style="background:#2f3540"></i>障碍</span>
+          <span style="color:#f07c93">● 怪物</span>
+          <span style="color:#3fcb86">✦ 资源</span>
+        </div>
+      </div>
+      <div class="map-grid-wrap">
+        <div class="map-grid" style="grid-template-columns:repeat(${cols},26px);grid-template-rows:repeat(${rows},26px)">${cells}</div>
+      </div>
+      <div class="map-meta">
+        <div><b>区域顺序</b>：${esc(regionOrder||'-')}</div>
+        <div><b>怪物刷点</b>：${spawnList}</div>
+        <div><b>资源点</b>：${resList}</div>
+        <div style="color:var(--ink-3)">导出 Tiled 格式 JSON 后可导入编辑器微调（导出功能后续实现）</div>
+      </div>
+    </div>`;
+}
+
+function renderDialogue(dlg){
+  const pane = document.getElementById('pane-tree');
+  const npcs = dlg.npcs||[];
+  if(!npcs.length){ pane.innerHTML='<div class="empty"><b>对话未生成</b></div>'; return; }
+  pane.innerHTML = npcs.map(n=>{
+    const lines = (n.dialogues||[]).map(dd=>{
+      const opts = (dd.options||[]).map(o=>`<div style="color:var(--ink-3);font-size:10px;padding-left:12px">↳ ${esc(o.text)} → ${esc(o.next)}</div>`).join('');
+      return `<div class="dialogue-line"><b>${esc(n.name||'NPC')}</b>：${esc(dd.text||'')}<span style="color:var(--ink-3);font-size:10px"> #${esc(dd.id||'')}</span>${opts}</div>`;
+    }).join('');
+    return `<div class="card"><h4>💬 ${esc(n.name||'NPC')} · ${esc(n.role||'')}</h4>
+      <div class="kv"><span class="k">人设</span><span class="v">${esc(n.personality||'-')}</span></div>${lines}</div>`;
+  }).join('');
+}
+
+function renderStats(num,vr){
+  const pane = document.getElementById('pane-stats');
+  const monsters = num.monsters||[];
+  if(!monsters.length){ pane.innerHTML='<div class="empty"><b>数值未生成</b></div>'; return; }
+  const rows = monsters.map(m=>{
+    const drops = (m.drops||[]).map(x=>`${esc(x.item)}(${x.rate}%)`).join(' / ')||'-';
+    return `<tr><td>${esc(m.name||m.id)}</td><td class="num">${m.hp}</td><td class="num">${m.attack}</td><td class="num">${m.defense}</td><td class="num">${m.gold}</td><td>${drops}</td></tr>`;
+  }).join('');
+  const pass = vr.passed;
+  pane.innerHTML = `<div class="card">
+    <h4>怪物数值 · ${pass?'全部通过 ✅':'存在阻断 ⛔'}</h4>
+    <table><thead><tr><th>怪物</th><th class="num">HP</th><th class="num">ATK</th><th class="num">DEF</th><th class="num">金币</th><th>掉落</th></tr></thead><tbody>${rows}</tbody></table>
+  </div>`;
+}
+
+function renderReview(rev,status,vr){
+  const pane = document.getElementById('pane-review');
+  const issues = rev.issues||[];
+  const issueHtml = issues.map(i=>`<div class="issue ${i.level==='block'?'bad':'warn'}"><span>${i.level==='block'?'⛔':'⚠️'}</span><div>${esc(i.message)}</div></div>`).join('') || '<div style="color:var(--ink-3);font-size:11px">无问题</div>';
+  const sugg = (rev.suggestions||[]).map(s=>`<li style="font-size:11px;color:var(--ink-2);margin:3px 0">› ${esc(s)}</li>`).join('');
+  pane.innerHTML = `<div class="card" style="text-align:center">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.1em">REVIEW · AGGREGATE</div>
+    <div class="verdict ${status==='pass'?'pass':'reject'}">${status==='pass'?'✅ 通过':'⛔ 驳回'}</div>
+    <div style="font-size:12px;color:var(--ink-3)">评分 ${rev.score??'-'} / 100</div>
+    <div style="text-align:left;margin-top:14px">${issueHtml}</div>
+    ${sugg?`<div style="text-align:left;margin-top:10px"><b style="font-size:11px">修改建议</b><ul style="margin:4px 0 0 16px">${sugg}</ul></div>`:''}
+  </div>`;
+}
+
+function renderReports(map,vr){
+  const items = [];
+  const check = map._path_check||{};
+  items.push({cls:check.reachable?'ok':'bad', title:check.reachable?'BFS 路径连通':'BFS 路径失败', detail:check.message||''});
+  if(vr.block_count!==undefined){
+    items.push({cls:vr.passed?'ok':'bad', title:vr.passed?'数值校验通过':'数值存在阻断', detail:`阻断 ${vr.block_count} · 警告 ${vr.warning_count}`});
+  }
+  (vr.issues||[]).slice(0,4).forEach(i=>{
+    items.push({cls:i.level==='block'?'bad':'warn', title:i.message, detail:i.monster_name||''});
+  });
+  document.getElementById('reports').innerHTML = items.map(i=>
+    `<div class="report-item ${i.cls}"><div><b>${esc(i.title)}</b><div class="detail">${esc(i.detail)}</div></div></div>`
+  ).join('');
+}
+
+/* ---------- 历史记录回放 ---------- */
+async function openRun(id){
+  try{
+    const r = await fetch('/api/run-detail/'+encodeURIComponent(id));
+    const data = await r.json();
+    if(data.error){ alert(data.error); return; }
+    current = data;
+    renderResult(data);
+    switchTab('map');
+    document.getElementById('stateInfo').textContent = 'state: 历史回放';
+  }catch(e){
+    alert('加载失败: '+e.message);
+  }
+}
+
+/* ---------- 历史树 ---------- */
+async function loadHistory(){
+  try{
+    const r = await fetch('/api/history');
+    const data = await r.json();
+    const box = document.getElementById('history');
+    if(!data.projects || !data.projects.length){
+      box.innerHTML = '<div style="font-size:11px;color:var(--ink-3)">还没有运行记录</div>'; return;
+    }
+    box.innerHTML = data.projects.map(p=>{
+      const runs = p.runs.map(run=>{
+        const icon = run.status==='pass'?'✅':'⛔';
+        const rid = String(run.id).replace(/'/g, "\\'");
+        return `<div class="run" onclick="openRun('${rid}')" title="点击查看该次完整产出">
+          <div>${icon} ${esc(run.title)} <span class="t">${esc(run.time)}</span></div>
+          <pre>${esc(run.text)}</pre>
+        </div>`;
+      }).join('');
+      return `<details open><summary>📁 ${esc(p.name)}（${p.runs.length} 次运行）</summary>${runs}</details>`;
+    }).join('');
+  }catch(e){ /* ignore */ }
+}
+
+/* ---------- 知识库 ---------- */
+async function loadKnowledge(){
+  try{
+    const r = await fetch('/api/knowledge');
+    const data = await r.json();
+    const box = document.getElementById('knowledge');
+    if(!data.docs || !data.docs.length){
+      box.innerHTML = '<div style="font-size:11px;color:var(--ink-3)">暂无其他文档</div>'; return;
+    }
+    box.innerHTML = data.docs.map(d=>
+      `<details><summary style="cursor:pointer">📄 ${esc(d.id)} <span style="color:var(--ink-3)">${esc(d.type)} · ${esc(d.project)}</span></summary><pre style="white-space:pre-wrap;font-size:10px;color:var(--ink-3);margin-top:4px">${esc(d.text)}</pre></details>`
+    ).join('');
+  }catch(e){ /* ignore */ }
+}
+
+/* ---------- 上传本地文档（.md/.txt/.json） ---------- */
+document.getElementById('uploadBtn').onclick = ()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange = async (e)=>{
+  const files = [...e.target.files];
+  if(!files.length) return;
+  const project = document.getElementById('projectSelect').value || 'default';
+  const form = new FormData();
+  form.append('project', project);
+  files.forEach(f=>form.append('files', f));
+  try{
+    const r = await fetch('/api/upload', {method:'POST', body: form});
+    const data = await r.json();
+    alert('上传 '+(data.imported||[]).length+' 个文档到项目「'+project+'」，当前共 '+data.count+' 条');
+    loadKnowledge();
+  }catch(err){
+    alert('上传失败: '+err.message);
+  }
+  e.target.value = '';
+};
+
+/* ---------- 项目选择器 ---------- */
+async function loadProjects(keepCurrent){
+  try{
+    const r = await fetch('/api/projects');
+    const data = await r.json();
+    const sel = document.getElementById('projectSelect');
+    const prev = keepCurrent ? sel.value : '';
+    sel.innerHTML = (data.projects||[]).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('')
+      || '<option value="default">default</option>';
+    if(prev){ sel.value = prev; }
+  }catch(e){ /* ignore */ }
+}
+
+document.getElementById('newProjectBtn').onclick = ()=>{
+  const name = (window.prompt('新建项目名称：')||'').trim();
+  if(!name) return;
+  const sel = document.getElementById('projectSelect');
+  if(![...sel.options].some(o=>o.value===name)){
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  }
+  sel.value = name;
+};
+
+/* ---------- 初始化 ---------- */
+renderPipeline('idle');
+loadProjects();
+loadKnowledge();
+loadHistory().then(()=>{
+  // 支持 ?replay=1&tab=map|tree|stats|review 自动回放最近一条记录（截图/演示用）
+  const params = new URLSearchParams(location.search);
+  if(params.has('replay')){
+    const first = document.querySelector('.run');
+    if(first) first.click();
+    const tab = params.get('tab');
+    if(tab) setTimeout(()=>switchTab(tab), 900);
+  }
+});
+</script>
+</body>
+</html>

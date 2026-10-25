@@ -1,0 +1,176 @@
+{
+  "numeric": {
+    "total": 12,
+    "passed": 12,
+    "rate": 1.0,
+    "rows": [
+      {
+        "case": "正常怪",
+        "expect": "阻断0/警告0",
+        "actual": "阻断0/警告0",
+        "pass": true
+      },
+      {
+        "case": "HP 为负",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "攻击为负",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "防御为负",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "爆率 120%",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "爆率恰好 100%",
+        "expect": "阻断0/警告0",
+        "actual": "阻断0/警告0",
+        "pass": true
+      },
+      {
+        "case": "攻击秒杀（>=50）",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "金币超限（>500）",
+        "expect": "阻断0/警告1",
+        "actual": "阻断0/警告1",
+        "pass": true
+      },
+      {
+        "case": "金币恰好 500",
+        "expect": "阻断0/警告0",
+        "actual": "阻断0/警告0",
+        "pass": true
+      },
+      {
+        "case": "多怪混合（1 阻断）",
+        "expect": "阻断1/警告0",
+        "actual": "阻断1/警告0",
+        "pass": true
+      },
+      {
+        "case": "多怪混合（2 阻断）",
+        "expect": "阻断2/警告0",
+        "actual": "阻断2/警告0",
+        "pass": true
+      },
+      {
+        "case": "全部正常（3 只）",
+        "expect": "阻断0/警告0",
+        "actual": "阻断0/警告0",
+        "pass": true
+      }
+    ]
+  },
+  "bfs": {
+    "total": 10,
+    "passed": 10,
+    "rate": 1.0,
+    "rows": [
+      {
+        "case": "直线通行",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      },
+      {
+        "case": "中间隔断",
+        "expect": "不可达",
+        "actual": "不可达",
+        "pass": true
+      },
+      {
+        "case": "L 型路径",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      },
+      {
+        "case": "终点被墙包围",
+        "expect": "不可达",
+        "actual": "不可达",
+        "pass": true
+      },
+      {
+        "case": "迷宫可达",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      },
+      {
+        "case": "起点在墙里",
+        "expect": "不可达",
+        "actual": "不可达",
+        "pass": true
+      },
+      {
+        "case": "单格地图",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      },
+      {
+        "case": "双区隔断",
+        "expect": "不可达",
+        "actual": "不可达",
+        "pass": true
+      },
+      {
+        "case": "横向长走廊",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      },
+      {
+        "case": "蛇形路径",
+        "expect": "可达",
+        "actual": "可达",
+        "pass": true
+      }
+    ]
+  },
+  "e2e": {
+    "total": 3,
+    "bfs_rate": 1.0,
+    "pass_rate": 0.6666666666666666,
+    "rows": [
+      {
+        "prompt": "制作新手森林关卡，适合 1-3 级玩家，救出村民安娜，哥布林小兵 8 只、首领 ",
+        "bfs": "✅",
+        "review": "pass",
+        "retry": 0,
+        "score": 88
+      },
+      {
+        "prompt": "设计一个洞穴探索关卡，1-3 级，怪物是蝙蝠和岩壳虫，难度偏低。",
+        "bfs": "✅",
+        "review": "pass",
+        "retry": 0,
+        "score": 88
+      },
+      {
+        "prompt": "设计地下城 BOSS 关卡，3-5 级，最终 BOSS 是恶魔领主，难度中等。",
+        "bfs": "✅",
+        "review": "reject",
+        "retry": 3,
+        "score": 58
+      }
+    ]
+  }
+}
